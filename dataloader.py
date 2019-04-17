@@ -15,6 +15,8 @@ import torch.utils.data as data
 import multiprocessing
 import six
 
+import utils
+
 class HybridLoader:
     """
     If db_path is a director, then use normal file loading
@@ -136,6 +138,14 @@ class DataLoader(data.Dataset):
         import atexit
         atexit.register(cleanup)
 
+        # for graphs
+        self.coco_image_data = utils.get_image_data()
+        self.objects = utils.get_object_types()
+        self.predicates = utils.get_predicate_types()
+        self.scene_graphs = h5py.File('exp/sg_results/coco_scenegraphs_px2graph.h5','r')
+        self.info_scene_graphs = (self.coco_image_data,self.scene_graphs,self.objects,self.predicates)
+
+
     def get_captions(self, ix, seq_per_img):
         # fetch the sequence labels
         ix1 = self.label_start_ix[ix] - 1 #label_start_ix starts from 1
@@ -222,6 +232,11 @@ class DataLoader(data.Dataset):
         data['gts'] = gts # all ground truth captions of each images
         data['bounds'] = {'it_pos_now': self.iterators[split], 'it_max': len(self.split_ix[split]), 'wrapped': wrapped}
         data['infos'] = infos
+
+        # add scene graph objects and relations
+        objs,rels = utils.get_graph_matrix(6, self.info_scene_graphs, object_threshold=0.3, only_connected=True, nonmax_suppress=0.7)
+        data['objs'] = objs
+        data['rels'] = rels
 
         data = {k:torch.from_numpy(v) if type(v) is np.ndarray else v for k,v in data.items()} # Turn all ndarray to torch tensor
 
