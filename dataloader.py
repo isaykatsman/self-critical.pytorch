@@ -144,6 +144,7 @@ class DataLoader(data.Dataset):
         self.predicates = utils.get_predicate_types()
         self.scene_graphs = h5py.File('exp/sg_results/coco_scenegraphs_px2graph.h5','r')
         self.info_scene_graphs = (self.coco_image_data,self.scene_graphs,self.objects,self.predicates)
+        self.scene_graph_ix = 0
 
 
     def get_captions(self, ix, seq_per_img):
@@ -234,9 +235,16 @@ class DataLoader(data.Dataset):
         data['infos'] = infos
 
         # add scene graph objects and relations
-        objs,rels = utils.get_graph_matrix(6, self.info_scene_graphs, object_threshold=0.3, only_connected=True, nonmax_suppress=0.7)
-        data['objs'] = objs
-        data['rels'] = rels
+        objs_batch = []
+        rels_batch = []
+
+        for i in range(batch_size):
+            objs,rels = utils.get_graph_matrix(self.scene_graph_ix, self.info_scene_graphs, object_threshold=0.3, only_connected=True, nonmax_suppress=0.7)
+            objs_batch.append(objs)
+            rels_batch.append(rels)
+            self.scene_graph_ix += 1
+        data['objs'] = objs_batch
+        data['rels'] = rels_batch
 
         data = {k:torch.from_numpy(v) if type(v) is np.ndarray else v for k,v in data.items()} # Turn all ndarray to torch tensor
 
